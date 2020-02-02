@@ -32,6 +32,7 @@
 #include "bmp280_defs.h"
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include "arm_math.h"
 #include "math_helper.h"
 /* USER CODE END Includes */
@@ -74,8 +75,8 @@ arm_pid_instance_f32 PID;
 /* Duty cycle for PWM */
 float duty = 0;
 int flag = 0;
-char msg[4]; // zmienna przechowywujaca znak
-
+uint8_t msg[4]; // zmienna przechowywujaca znak
+uint16_t Sizemsg = 4;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -194,10 +195,9 @@ int main(void)
   rslt = bmp280_set_power_mode(BMP280_NORMAL_MODE, &bmp);
   /* Initialize PID system, float32_t format */
   arm_pid_init_f32(&PID, 1);
-  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);//ten bedzie od grzalki PC7
-  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);//ten bedzie od wiatraka PA6
-  HAL_UART_Receive_IT(&huart3,  &msg, 4);
-
+  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);// grzalka PC7
+  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);// wiatrak PA6
+  HAL_UART_Receive_IT(&huart3, msg, Sizemsg);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -218,7 +218,7 @@ int main(void)
   HAL_UART_Transmit(&huart3, (uint8_t*)buffer, size, 200);
 
   /* Liczymy uchyb */
-  pid_uchyb = TEMP_CURRENT - TEMP_WANT;
+  pid_uchyb = TEMP_WANT - TEMP_CURRENT;
   /* Output data will be returned, we will use it as duty cycle parameter */
   duty = arm_pid_f32(&PID, pid_uchyb);
 
@@ -231,13 +231,13 @@ int main(void)
      duty = -100;
   }
   /* Set PWM duty cycle for DC FAN to cool down sensor for "TEMP_CURRENT" */
-  if(TEMP_CURRENT > TEMP_WANT){
-    __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 10*duty);
-    __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 0);
+  if(TEMP_WANT > TEMP_CURRENT){
+    __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 0);//CH1 WIATRAK
+    __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 10*duty);
   }
-  else if(TEMP_CURRENT < TEMP_WANT){
-	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 0);
-	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, -10*duty);
+  else if(TEMP_WANT < TEMP_CURRENT){
+	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, -10*duty);
+	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 0);
  }
   /* Sleep time between measurements = BMP280_ODR_1000_MS */
   bmp.delay_ms(1000);
@@ -306,28 +306,17 @@ void SystemClock_Config(void)
 /* USER CODE BEGIN 4 */
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)//odbieranie zadanej temp
 {
+
 			flag = 1;
+    	  	    HAL_UART_Receive_IT(&huart3, msg, Sizemsg);//odebranie znaku
+	  	  	    HAL_UART_Transmit_IT(&huart3, msg, Sizemsg);
+
+	  	  	 	 int value1 = msg[0] - '0';
+	  	  	 	 int value2 = msg[1] - '0';
+	  	  	 	 int value_afd = msg[3] - '0';
+	  	    	 TEMP_WANT = 10.0 * value1 + value2 + value_afd / 10.0;
 
 
-	  	  	      char dot;
-	  	  	      char value[2];
-	  	  	      char value_afd;
-	  	  	      int value_i, value_j;
-	  	  	      float vf_i, vf_j;
-	  	  	    HAL_UART_Receive_IT(&huart3, &msg, 4);//odebranie znaku
-	  	  	      value[0] = msg[0];
-	  	  	      value[1] = msg[1];
-	  	  	      dot = msg[2];
-	  	  	      value_afd = msg[3];
-	  	  	      value_i = atoi(value);
-	  	  	      vf_i = value_i;
-	  	  	      value_j = atoi(value_afd);
-	  	  	      vf_j = value_j;
-	  	  	      vf_j = vf_j/10;
-	  	  	      vf_i += vf_j;
-	  	  	      TEMP_WANT = vf_i;
-
-		  HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
 }
 /* USER CODE END 4 */
 
@@ -368,5 +357,3 @@ void assert_failed(uint8_t *file, uint32_t line)
 #endif /* USE_FULL_ASSERT */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
-
-
