@@ -47,8 +47,8 @@ L10_FIR.list \
 all: L10_FIR.elf secondary-outputs
 
 # Tool invocations
-L10_FIR.elf: $(OBJS) $(USER_OBJS) G:\projekt\L10_FIR\STM32F746ZGTX_FLASH.ld
-	arm-none-eabi-gcc -o "L10_FIR.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m7 -T"G:\projekt\L10_FIR\STM32F746ZGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="L10_FIR.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv5-sp-d16 -mfloat-abi=hard -mthumb -u _printf_float -Wl,--start-group -lc -lm -Wl,--end-group
+L10_FIR.elf: $(OBJS) $(USER_OBJS) C:\Users\xx\Desktop\L10_FIR\STM32F746ZGTX_FLASH.ld
+	arm-none-eabi-gcc -o "L10_FIR.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m7 -T"C:\Users\xx\Desktop\L10_FIR\STM32F746ZGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="L10_FIR.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv5-sp-d16 -mfloat-abi=hard -mthumb -u _printf_float -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 

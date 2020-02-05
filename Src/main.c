@@ -49,7 +49,7 @@
 #define BMP280_ADDRESS_INDEX 2
 
 /* PID parameters */
-#define PID_PARAM_KP        100            /* Proporcional */
+#define PID_PARAM_KP        350            /* Proporcional */
 #define PID_PARAM_KI        0        /* Integral */
 #define PID_PARAM_KD        0            /* Derivative */
 
@@ -154,6 +154,7 @@ int main(void)
 
 
 
+
   /* USER CODE END 1 */
   
 
@@ -220,7 +221,7 @@ int main(void)
   /* Liczymy uchyb */
   pid_uchyb = TEMP_WANT - TEMP_CURRENT;
   /* Output data will be returned, we will use it as duty cycle parameter */
-  duty = arm_pid_f32(&PID, pid_uchyb);
+  duty = arm_pid_f32(&PID, TEMP_WANT - TEMP_CURRENT);
 
 
 
@@ -239,6 +240,13 @@ int main(void)
 	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, -10*duty);
 	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 0);
  }
+
+  if(abs(pid_uchyb) < 0.2){
+	  HAL_GPIO_WritePin(LED_B_GPIO_Port, LED_B_Pin, 1);
+  }
+  else if(abs(pid_uchyb) > 0.2){
+	  HAL_GPIO_WritePin(LED_B_GPIO_Port, LED_B_Pin, 0);
+  }
   /* Sleep time between measurements = BMP280_ODR_1000_MS */
   bmp.delay_ms(1000);
 
@@ -306,17 +314,27 @@ void SystemClock_Config(void)
 /* USER CODE BEGIN 4 */
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)//odbieranie zadanej temp
 {
+int czy_dobra = 0;
 
+HAL_UART_Receive_IT(&huart3, msg, Sizemsg);//odebranie znaku
+
+if(msg[0]>47 && msg[0]<58){//kontrola odebranej wiadomosci
+	int value1 = msg[0] - '0';
+	if(msg[1]>47 && msg[1]<58){
+		int value2 = msg[1] - '0';
+		if(msg[3]>47 && msg[3]<58){
+			int value_afd = msg[3] - '0';
+			czy_dobra = 1;
+			TEMP_WANT = 10.0 * value1 + value2 + value_afd / 10.0;
 			flag = 1;
-    	  	    HAL_UART_Receive_IT(&huart3, msg, Sizemsg);//odebranie znaku
-	  	  	    HAL_UART_Transmit_IT(&huart3, msg, Sizemsg);
-
-	  	  	 	 int value1 = msg[0] - '0';
-	  	  	 	 int value2 = msg[1] - '0';
-	  	  	 	 int value_afd = msg[3] - '0';
-	  	    	 TEMP_WANT = 10.0 * value1 + value2 + value_afd / 10.0;
-
-
+	}
+  }
+}
+if(czy_dobra != 1){
+	char buf[20];
+	uint8_t wiad = sprintf(buf, "Zla wartosc\n\r");
+	HAL_UART_Transmit(&huart3, (uint8_t*)buf, wiad, 100);
+}
 }
 /* USER CODE END 4 */
 
