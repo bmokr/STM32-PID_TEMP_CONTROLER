@@ -1,0 +1,3 @@
+arm_cfft_radix2_q15.c:67:6:arm_cfft_radix2_q15	16	static
+arm_cfft_radix2_q15.c:90:6:arm_radix2_butterfly_q15	320	static,ignoring_inline_asm
+arm_cfft_radix2_q15.c:419:6:arm_radix2_butterfly_inverse_q15	296	static,ignoring_inline_asm

@@ -34,21 +34,21 @@ endif
 
 # Add inputs and outputs from these tool invocations to the build variables 
 EXECUTABLES += \
-L10_FIR.elf \
+termalControl.elf \
 
 SIZE_OUTPUT += \
 default.size.stdout \
 
 OBJDUMP_LIST += \
-L10_FIR.list \
+termalControl.list \
 
 
 # All Target
-all: L10_FIR.elf secondary-outputs
+all: termalControl.elf secondary-outputs
 
 # Tool invocations
-L10_FIR.elf: $(OBJS) $(USER_OBJS) C:\Users\xx\Desktop\L10_FIR\STM32F746ZGTX_FLASH.ld
-	arm-none-eabi-gcc -o "L10_FIR.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m7 -T"C:\Users\xx\Desktop\L10_FIR\STM32F746ZGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="L10_FIR.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv5-sp-d16 -mfloat-abi=hard -mthumb -u _printf_float -Wl,--start-group -lc -lm -Wl,--end-group
+termalControl.elf: $(OBJS) $(USER_OBJS) C:\Users\xx\Desktop\L10_FIR\STM32F746ZGTX_FLASH.ld
+	arm-none-eabi-gcc -o "termalControl.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m7 -T"C:\Users\xx\Desktop\L10_FIR\STM32F746ZGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="termalControl.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv5-sp-d16 -mfloat-abi=hard -mthumb -u _printf_float -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
@@ -57,8 +57,8 @@ default.size.stdout: $(EXECUTABLES)
 	@echo 'Finished building: $@'
 	@echo ' '
 
-L10_FIR.list: $(EXECUTABLES)
-	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "L10_FIR.list"
+termalControl.list: $(EXECUTABLES)
+	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "termalControl.list"
 	@echo 'Finished building: $@'
 	@echo ' '
 

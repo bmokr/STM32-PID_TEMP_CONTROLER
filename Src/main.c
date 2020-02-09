@@ -34,7 +34,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "arm_math.h"
-#include "math_helper.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -62,20 +61,17 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
-
 /* USER CODE BEGIN PV */
-char data[4];
 float TEMP_CURRENT;           /* Temperature we actually have */
 float TEMP_WANT;              /* Temperature we want to have */
-/* Uchyb PID */
-float pid_uchyb;
+float pid_uchyb; 			  /* Uchyb PID */
+arm_pid_instance_f32 PID;     /* ARM PID Instance, float_32 */
+float duty = 0;               /* Duty cycle for PWM */
+/* Variables for UART communication */
 uint8_t want_uart;
-/* ARM PID Instance, float_32 */
-arm_pid_instance_f32 PID;
-/* Duty cycle for PWM */
-float duty = 0;
 int flag = 0;
-uint8_t msg[4]; // zmienna przechowywujaca znak
+char data[4];
+uint8_t msg[4];
 uint16_t Sizemsg = 4;
 /* USER CODE END PV */
 
@@ -139,22 +135,18 @@ return (int8_t)iError;
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-	PID.Kp = PID_PARAM_KP;        /* Proporcional */
-	PID.Ki = PID_PARAM_KI;        /* Integral */
-	PID.Kd = PID_PARAM_KD;        /* Derivative */
-
-	int8_t rslt;
-	struct bmp280_dev bmp;
-	struct bmp280_config conf;
-	struct bmp280_uncomp_data ucomp_data;
-
-	double temp;
-	char buffer[40];
-	uint8_t size;
-
-
-
-
+		PID.Kp = PID_PARAM_KP;        /* Proporcional */
+		PID.Ki = PID_PARAM_KI;        /* Integral */
+		PID.Kd = PID_PARAM_KD;        /* Derivative */
+	        /* Inicjalizacja struktury i parametrow dla odbierania danych wynikowych z czujnika */
+		int8_t rslt;
+		struct bmp280_dev bmp;
+		struct bmp280_config conf;
+		struct bmp280_uncomp_data ucomp_data;
+	        /* Zmienne potrzebne do wysylania odczytanej temperatury */
+		double temp;
+		char buffer[40];
+		uint8_t size;
   /* USER CODE END 1 */
   
 
@@ -181,6 +173,7 @@ int main(void)
   MX_SPI4_Init();
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
+  /* Inicjalizacja i konfiguracja dla BMP280 */
   bmp.delay_ms = HAL_Delay;
   bmp.dev_id = 0;
   bmp.intf = BMP280_SPI_INTF;
@@ -190,15 +183,13 @@ int main(void)
   rslt = bmp280_get_config(&conf, &bmp);
   conf.filter = BMP280_FILTER_COEFF_2;
   conf.os_temp = BMP280_OS_4X;
-  conf.os_pres = BMP280_OS_4X;
   conf.odr = BMP280_ODR_1000_MS;
   rslt = bmp280_set_config(&conf, &bmp);
   rslt = bmp280_set_power_mode(BMP280_NORMAL_MODE, &bmp);
-  /* Initialize PID system, float32_t format */
-  arm_pid_init_f32(&PID, 1);
-  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);// grzalka PC7
-  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);// wiatrak PA6
-  HAL_UART_Receive_IT(&huart3, msg, Sizemsg);
+  arm_pid_init_f32(&PID, 1);	/* Initialize PID system, float32_t format */
+  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2); /* PWM grzalka PC7 */
+  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1); /* PWM wiatrak PA6 */
+  HAL_UART_Receive_IT(&huart3, msg, Sizemsg); /* UART dla odbierania danych z czujnika */
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -206,24 +197,22 @@ int main(void)
   while (1)
   {
   rslt = bmp280_get_uncomp_data(&ucomp_data, &bmp);
-
    /* Getting the compensated temperature as floating point value */
   rslt = bmp280_get_comp_temp_double(&temp, ucomp_data.uncomp_temp, &bmp);
   TEMP_CURRENT = temp;
+  /* If no ref. temp. have been given yet: */
   if(flag == 0){
 	  TEMP_WANT = TEMP_CURRENT;
   }
 
-
+  /* Sending temperature to terminal */
   size = sprintf(buffer, "Temp:  %f [C]\n\r", TEMP_CURRENT);
   HAL_UART_Transmit(&huart3, (uint8_t*)buffer, size, 200);
 
-  /* Liczymy uchyb */
+  /* Count error */
   pid_uchyb = TEMP_WANT - TEMP_CURRENT;
   /* Output data will be returned, we will use it as duty cycle parameter */
   duty = arm_pid_f32(&PID, TEMP_WANT - TEMP_CURRENT);
-
-
 
   /* Check overflow, duty cycle in percent */
   if (duty > 100) {
@@ -233,14 +222,14 @@ int main(void)
   }
   /* Set PWM duty cycle for DC FAN to cool down sensor for "TEMP_CURRENT" */
   if(TEMP_WANT > TEMP_CURRENT){
-    __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 0);//CH1 WIATRAK
+    __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 0);
     __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 10*duty);
   }
   else if(TEMP_WANT < TEMP_CURRENT){
 	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, -10*duty);
 	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 0);
  }
-
+  /* Setting diode if error is less than 1% */
   if(abs(pid_uchyb) < 0.2){
 	  HAL_GPIO_WritePin(LED_B_GPIO_Port, LED_B_Pin, 1);
   }
@@ -312,17 +301,18 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)//odbieranie zadanej temp
+/* Callback for receiving ref. temp. from terminal */
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
 int czy_dobra = 0;
-
-HAL_UART_Receive_IT(&huart3, msg, Sizemsg);//odebranie znaku
-
-if(msg[0]>47 && msg[0]<58){//kontrola odebranej wiadomosci
+/* Receiving and checking if received signs are numbers */
+HAL_UART_Receive_IT(&huart3, msg, Sizemsg);
+if(msg[0]>47 && msg[0]<58){
 	int value1 = msg[0] - '0';
 	if(msg[1]>47 && msg[1]<58){
 		int value2 = msg[1] - '0';
 		if(msg[3]>47 && msg[3]<58){
+			/* Setting ref. temp. */
 			int value_afd = msg[3] - '0';
 			czy_dobra = 1;
 			TEMP_WANT = 10.0 * value1 + value2 + value_afd / 10.0;
@@ -330,6 +320,7 @@ if(msg[0]>47 && msg[0]<58){//kontrola odebranej wiadomosci
 	}
   }
 }
+/* Error in received data */
 if(czy_dobra != 1){
 	char buf[20];
 	uint8_t wiad = sprintf(buf, "Zla wartosc\n\r");
